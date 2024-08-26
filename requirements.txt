@@ -1,0 +1,7 @@
+pdfplumber==0.7.1
+pandas==2.2.2
+streamlit==1.22.0
+plotly==5.23.0
+python-dotenv==0.19.1
+protobuf==3.20.0
+numpy==2.1
