@@ -3,9 +3,6 @@ from datetime import datetime
 
 
 def parse_invoice(invoice_text):
-    print("Parsing invoice text:")
-    print(invoice_text[:500] + "...")  # Print first 500 characters for debugging
-
     result = {}
 
     try:
@@ -21,67 +18,54 @@ def parse_invoice(invoice_text):
         else:
             print("Could not find invoice number or date")
 
+        # Check if this is a reservation extension
+        reservation_match = re.search(r'Reservierungsverlängerung', invoice_text)
+        if reservation_match:
+            result['type'] = 'reservation_extension'
+            amount_match = re.search(r'Gesamtbetrag\s+[\d,]+\s+[\d,]+\s+([\d,]+)', invoice_text)
+            if amount_match:
+                result['total_amount'] = float(amount_match.group(1).replace(',', '.'))
+                print(f"Found reservation extension amount: {result['total_amount']}")
+            return result
+
+        # If not a reservation, proceed with normal trip parsing
+        result['type'] = 'trip'
+
         # Extract trip details
-        date_match = re.search(r'(\d{2}\.\d{2}\.)(\d{2})', invoice_text)
-        time_matches = re.findall(r'(\d{2}:\d{2})', invoice_text)
-        distance_match = re.search(r'(\d+,\d+)', invoice_text)
-        vehicle_match = re.search(r'(\w+(?:\s+\w+)*)\s+(?=Essener Bogen|Lat/Lon)', invoice_text)
-        location_matches = re.findall(r'(\w+(?:\s+\w+)*\s+\d+,\s+\d+\s+\w+)', invoice_text)
-        coordinates_matches = re.findall(r'Lat/Lon:\s*([\d.,]+)', invoice_text)
-        license_plate_match = re.search(r'([A-Z]{2}-[A-Z0-9]+)', invoice_text)
-        total_amount_match = re.search(r'Gesamtbetrag\s+[\d,]+\s+[\d,]+\s+([\d,]+)', invoice_text)
+        trip_pattern = r'(\d{2}\.\d{2}\.\d{2})\s+(\d{2}:\d{2})\s+(\d+,\d+)\s+(.*?)\s+(.*?)\s+Lat/Lon:\s*([\d.,]+)\s+(.*?)\s+Lat/Lon:\s*([\d.,]+)\s+(\d{2}:\d{2})\s+(.*)'
+        trip_match = re.search(trip_pattern, invoice_text, re.DOTALL)
 
-        if date_match:
-            # Correct the year to match the invoice date
-            invoice_year = result['invoice_date'][-2:]  # Get last two digits of invoice year
-            result['date'] = f"{date_match.group(1)}{invoice_year}"
-            print(f"Found date: {result['date']}")
+        if trip_match:
+            result['date'] = trip_match.group(1)
+            result['start_time'] = trip_match.group(2)
+            result['end_time'] = trip_match.group(9)
+            result['distance'] = float(trip_match.group(3).replace(',', '.'))
+            result['vehicle'] = trip_match.group(4)
+            result['start_location'] = trip_match.group(5)
+            result['start_coordinates'] = trip_match.group(6)
+            result['end_location'] = trip_match.group(7)
+            result['end_coordinates'] = trip_match.group(8)
+            result['license_plate'] = trip_match.group(10)
 
-        if len(time_matches) >= 2:
-            result['start_time'] = time_matches[0]
-            result['end_time'] = time_matches[1]
-            print(f"Found start time: {result['start_time']}")
-            print(f"Found end time: {result['end_time']}")
+            print(f"Found trip details: date={result['date']}, vehicle={result['vehicle']}, distance={result['distance']} km")
 
-        if distance_match:
-            result['distance'] = float(distance_match.group(1).replace(',', '.'))
-            print(f"Found distance: {result['distance']}")
-
-        if vehicle_match:
-            result['vehicle'] = vehicle_match.group(1).strip()
-            print(f"Found vehicle: {result['vehicle']}")
-        else:
-            print("Could not find vehicle information")
-
-        if len(location_matches) >= 2:
-            result['start_location'] = location_matches[0]
-            result['end_location'] = location_matches[1]
-            print(f"Found start location: {result['start_location']}")
-            print(f"Found end location: {result['end_location']}")
-
-        if len(coordinates_matches) >= 2:
-            result['start_coordinates'] = coordinates_matches[0]
-            result['end_coordinates'] = coordinates_matches[1]
-            print(f"Found start coordinates: {result['start_coordinates']}")
-            print(f"Found end coordinates: {result['end_coordinates']}")
-
-        if license_plate_match:
-            result['license_plate'] = license_plate_match.group(1)
-            print(f"Found license plate: {result['license_plate']}")
-
-        if total_amount_match:
-            result['total_amount'] = float(total_amount_match.group(1).replace(',', '.'))
-            print(f"Found total amount: {result['total_amount']}")
-
-        if 'start_time' in result and 'end_time' in result:
+            # Calculate trip duration
             start_time = datetime.strptime(result['start_time'], '%H:%M')
             end_time = datetime.strptime(result['end_time'], '%H:%M')
             duration = (end_time - start_time).total_seconds() / 60
             result['duration'] = duration
             print(f"Calculated duration: {duration} minutes")
+        else:
+            print("Could not extract trip details.")
+
+        # Extract total amount
+        total_amount_match = re.search(r'Gesamtbetrag\s+[\d,]+\s+[\d,]+\s+([\d,]+)', invoice_text)
+        if total_amount_match:
+            result['total_amount'] = float(total_amount_match.group(1).replace(',', '.'))
+            print(f"Found total amount: {result['total_amount']}")
 
         return result
 
     except Exception as e:
         print(f"Error parsing invoice: {str(e)}")
-        return result
+        return None
