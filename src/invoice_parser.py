@@ -1,6 +1,7 @@
 import re
 from datetime import datetime, timedelta
 
+
 def parse_invoice(invoice_text):
     result = {}
 
@@ -39,7 +40,7 @@ def parse_invoice(invoice_text):
         if "SHARE NOW Bearbeitungspauschale" in invoice_text:
             result['type'] = 'processing_fee'
             # Extract gross amount (Brutto)
-            amount_match = re.search(r'Gesamtbetrag\s+([\d,]+)', invoice_text)
+            amount_match = re.search(r'Gesamtbetrag\s+[\d,]+\s+[\d,]+\s+([\d,]+)', invoice_text)
             if amount_match:
                 result['total_amount'] = float(amount_match.group(1).replace(',', '.'))
                 print(f"Found processing fee gross amount: {result['total_amount']}")
@@ -59,7 +60,7 @@ def parse_invoice(invoice_text):
         if "Mehrfachreservierung" in invoice_text or "Reservierungsverlängerung" in invoice_text:
             result['type'] = 'reservation'
             # Extract gross amount (Brutto)
-            amount_match = re.search(r'Gesamtbetrag\s+([\d,]+)', invoice_text)
+            amount_match = re.search(r'Gesamtbetrag\s+[\d,]+\s+[\d,]+\s+([\d,]+)', invoice_text)
             if amount_match:
                 result['total_amount'] = float(amount_match.group(1).replace(',', '.'))
                 print(f"Found reservation gross amount: {result['total_amount']}")

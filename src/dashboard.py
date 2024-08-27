@@ -34,7 +34,7 @@ def load_data():
     df['trip_date'] = df['invoice_date']
 
     # Update 'trip_date' for trips based on the 'date' field if available
-    mask = df['type'] == 'trip'
+    mask = df['type'] == 'Trip'
     if 'date' in df.columns:
         df.loc[mask, 'trip_date'] = pd.to_datetime(df.loc[mask, 'date'], format='%d.%m.%y', errors='coerce')
 
@@ -66,6 +66,14 @@ def load_data():
     # Create a 'year' column based on 'invoice_date'
     df['year'] = df['invoice_date'].dt.year
 
+    # Update cost types to be more user-friendly
+    df['type'] = df['type'].replace({
+        'trip': 'Trip',
+        'share_now_pass': 'ShareNow Pass',
+        'reservation': 'Reservation',
+        'processing_fee': 'Traffic Violation'
+    })
+
     return df
 
 
@@ -78,7 +86,7 @@ def format_duration(total_minutes):
 
 # Main function to render the dashboard
 def main():
-    st.title('Mobilytics Dashboard')
+    st.title('Mobilytics: Your Carsharing Usage Analysis')
 
     # Load the data
     df = load_data()
@@ -89,33 +97,46 @@ def main():
     available_years = ['All Years'] + sorted(df['year'].dropna().unique(), reverse=True)
     selected_year = st.sidebar.selectbox('Select Year', available_years, index=0)
 
+    # Add a vehicle filter with an option to select all vehicles
+    available_vehicles = ['All Vehicles'] + sorted(df['brand'].dropna().unique())
+    selected_vehicle = st.sidebar.selectbox('Select Vehicle', available_vehicles, index=0)
+
+    # Add a cost type filter with an option to select all types
+    available_types = ['All'] + sorted(df['type'].unique())
+    selected_type = st.sidebar.selectbox('Select Cost Type', available_types, index=0)
+
     # Filter data based on the selected year
     if selected_year != 'All Years':
         df = df[df['year'] == selected_year]
 
+    # Filter data based on the selected vehicle
+    if selected_vehicle != 'All Vehicles':
+        df = df[df['brand'] == selected_vehicle]
+
+    # Filter data based on the selected cost type
+    if selected_type != 'All':
+        df = df[df['type'] == selected_type]
+
     # Usage overview metrics
     st.header('Usage Overview')
-    col1, col2, col3, col4, col5, col6 = st.columns(6)
+    col1, col2, col3, col4 = st.columns(4)
 
-    trip_cost = df[df['type'] == 'trip']['total_amount'].sum()
-    reservation_cost = df[df['type'] == 'reservation']['total_amount'].sum()
+    total_cost = df['total_amount'].sum()
 
     # Display total distance if available
     if 'distance' in df.columns:
-        total_distance = df[df['type'] == 'trip']['distance'].sum()
+        total_distance = df[df['type'] == 'Trip']['distance'].sum()
         col1.metric('Total Distance (km)', f"{total_distance:.2f}")
     else:
         col1.metric('Total Distance (km)', "N/A")
 
-    col2.metric('Total Trips', len(df[df['type'] == 'trip']))
-    col3.metric('Total Reservations', len(df[df['type'] == 'reservation']))
-    col4.metric('Trip Costs (€)', f"{trip_cost:.2f}")
-    col5.metric('Reservation Costs (€)', f"{reservation_cost:.2f}")
+    col2.metric('Invoices', len(df))
+    col3.metric('Total Cost (€)', f"{total_cost:.2f}")
 
     # Calculate and display total driving time
-    total_duration_minutes = df[df['type'] == 'trip']['duration'].sum()
+    total_duration_minutes = df[df['type'] == 'Trip']['duration'].sum()
     formatted_duration = format_duration(total_duration_minutes)
-    col6.metric('Total Driving Time', formatted_duration)
+    col4.metric('Total Driving Time', formatted_duration)
 
     # Cost breakdown pie chart
     st.header('Cost Breakdown')
@@ -129,7 +150,7 @@ def main():
     st.bar_chart(yearly_costs.set_index('year'))
 
     # Vehicle brand usage treemap
-    trip_df = df[df['type'] == 'trip']
+    trip_df = df[df['type'] == 'Trip']
     if not trip_df.empty:
         st.header('Trip Statistics')
         col1, col2 = st.columns(2)
@@ -161,8 +182,7 @@ def main():
                                        path=['Brand'],
                                        values='Total Cost',
                                        color='Number of Trips',
-                                       hover_data=[
-                                           'Total Distance'] if 'Total Distance' in brand_usage.columns else None,
+                                       hover_data=['Total Distance'] if 'Total Distance' in brand_usage.columns else None,
                                        color_continuous_scale='RdBu',
                                        title='Vehicle Brand Usage (Size: Total Cost, Color: Number of Trips)')
                 st.plotly_chart(fig_brand)
