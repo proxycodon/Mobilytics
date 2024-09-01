@@ -154,15 +154,40 @@ def main():
     if not trip_df.empty:
         st.header('Trip Statistics')
         col1, col2 = st.columns(2)
-        if 'distance' in trip_df.columns:
-            col1.metric('Total Distance (km)', f"{trip_df['distance'].sum():.2f}")
-        else:
-            col1.metric('Total Distance (km)', "N/A")
 
         if 'duration' in trip_df.columns:
-            col2.metric('Average Trip Duration (min)', f"{trip_df['duration'].mean():.0f}")
+            avg_duration = trip_df['duration'].mean()
+            col1.metric('Average Trip Duration', format_duration(avg_duration))
         else:
-            col2.metric('Average Trip Duration (min)', "N/A")
+            col1.metric('Average Trip Duration', "N/A")
+
+        if 'distance' in trip_df.columns:
+            avg_distance = trip_df['distance'].mean()
+            col2.metric('Average Trip Distance (km)', f"{avg_distance:.2f}")
+        else:
+            col2.metric('Average Trip Distance (km)', "N/A")
+
+        # New section: Trip Highlights
+        st.header('Trip Highlights')
+        col1, col2 = st.columns(2)
+
+        # Longest trip
+        if 'distance' in trip_df.columns:
+            longest_trip = trip_df.loc[trip_df['distance'].idxmax()]
+            col1.subheader('Longest Trip')
+            col1.write(f"Distance: {longest_trip['distance']:.2f} km")
+            col1.write(f"Date: {longest_trip['trip_date'].strftime('%Y-%m-%d')}")
+            col1.write(f"Vehicle: {longest_trip['brand']}")
+        else:
+            col1.subheader('Longest Trip')
+            col1.write("Data not available")
+
+        # Most expensive trip
+        most_expensive_trip = trip_df.loc[trip_df['total_amount'].idxmax()]
+        col2.subheader('Most Expensive Trip')
+        col2.write(f"Cost: €{most_expensive_trip['total_amount']:.2f}")
+        col2.write(f"Date: {most_expensive_trip['trip_date'].strftime('%Y-%m-%d')}")
+        col2.write(f"Vehicle: {most_expensive_trip['brand']}")
 
         # Display vehicle brand usage as a treemap
         if 'brand' in trip_df.columns:

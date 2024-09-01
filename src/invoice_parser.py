@@ -19,21 +19,20 @@ def parse_invoice(invoice_text):
             print("Could not find invoice number or date")
             return None
 
-        # Check for SHARE NOW Pass
-        if "SHARE NOW Pass" in invoice_text:
+        # Check for SHARE NOW Pass purchase
+        share_now_pass_match = re.search(r'SHARE NOW Pass\d+\s+(\d{2}\.\d{2}\.\d{2})\s+-\s+(\d{2}\.\d{2}\.\d{2})',
+                                         invoice_text)
+        if share_now_pass_match:
             result['type'] = 'share_now_pass'
+            result['period_start'] = share_now_pass_match.group(1)
+            result['period_end'] = share_now_pass_match.group(2)
+            print(f"Found SHARE NOW Pass period: {result['period_start']} to {result['period_end']}")
+
             # Extract gross amount (Brutto)
             amount_match = re.search(r'Gesamtbetrag\s+[\d,]+\s+[\d,]+\s+([\d,]+)', invoice_text)
             if amount_match:
                 result['total_amount'] = float(amount_match.group(1).replace(',', '.'))
                 print(f"Found SHARE NOW Pass gross amount: {result['total_amount']}")
-            # Extract the period of the pass
-            period_match = re.search(r'SHARE NOW Pass\s+(\d{2}\.\d{2}\.\d{2})\s+-\s+(\d{2}\.\d{2}\.\d{2})',
-                                     invoice_text)
-            if period_match:
-                result['period_start'] = period_match.group(1)
-                result['period_end'] = period_match.group(2)
-                print(f"Found SHARE NOW Pass period: {result['period_start']} to {result['period_end']}")
             return result
 
         # Check for processing fee
@@ -112,6 +111,13 @@ def parse_invoice(invoice_text):
             duration = (end_time - start_time).total_seconds() / 60
             result['duration'] = duration
             print(f"Calculated duration: {duration} minutes")
+
+            # Check if SHARE NOW Pass discount was applied
+            if "SHARE NOW Pass" in invoice_text:
+                result['share_now_pass_applied'] = True
+                print("SHARE NOW Pass discount applied to this trip")
+            else:
+                result['share_now_pass_applied'] = False
 
         else:
             print("Could not extract trip details.")
